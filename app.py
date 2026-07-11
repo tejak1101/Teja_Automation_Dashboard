@@ -748,7 +748,15 @@ def bump_version():
     st.session_state.data_version += 1
 
 
-@st.cache_data(show_spinner=False)
+# NOTE: every mutate()/log_activity() call bumps data_version, and that
+# version is part of this cache's key (see cq() below). That's what makes
+# invalidation work — but without limits, Streamlit keeps every past
+# version's query results in memory forever, and the cache grows without
+# bound the longer the app runs. On a memory-capped host (e.g. Streamlit
+# Community Cloud's ~1GB containers) that eventually gets the whole process
+# OOM-killed. max_entries + ttl bound the cache so old, stale-version
+# entries get evicted automatically instead of accumulating forever.
+@st.cache_data(show_spinner=False, max_entries=200, ttl=1800)
 def _cached_query(query, params_items, version):
     params = dict(params_items) if params_items else None
     return run_query(query, params)
